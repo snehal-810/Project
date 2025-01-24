@@ -11,9 +11,13 @@ console.log(port);
 
 // create a new express application
 const app = express();
+// Enables Cross-Origin Resource Sharing (CORS) to allow requests from different origins.
 app.use(cors());
+// Parses JSON payloads from incoming requests.
 app.use(express.json());
+// Parses URL-encoded payloads.
 app.use(express.urlencoded({ extended: true }));
+// Logs HTTP requests using the "combined" log format.
 app.use(morgan("combined"));
 
 // return version

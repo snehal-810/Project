@@ -1,6 +1,6 @@
 module.exports = {
     SECRET_KEY: "OxQkEmbMNmTnluMWQhqj7uyjPdfdsaer342421JJDzkU",
-    DB_NAME: "study",
+    DB_NAME: "projectmern",
     USERNAME: "root",
     PASSWORD: "manager",
     PORT_NO: 4000,
