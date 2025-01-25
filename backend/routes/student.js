@@ -57,3 +57,5 @@ const verifyToken = (request, response, next) => {
       }
     );
   });
+
+  module.exports = router;

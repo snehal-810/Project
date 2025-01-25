@@ -88,4 +88,353 @@ router.post("/login", (request, response) => {
   });
 });
 
+// GET ALL STAFF MEMBERS
+router.get("/all-staff", authorizeRole(["admin"]), (request, response) => {
+  const statement = `SELECT * FROM ${STAFF_TABLE}`;
+
+  db.execute(statement, (error, result) => {
+    response.send(utils.createResponse(error, result));
+  });
+});
+
+//! COURSE RELATED APIs
+// ADDING COURSES
+router.post("/add-course", authorizeRole(["admin"]), (request, response) => {
+  const { course_name } = request.body;
+  console.log("adding course: ", course_name);
+  
+
+  const statement = `INSERT INTO ${COURSE_TABLE} 
+    (course_name)
+    VALUES  (?)`;
+
+  db.execute(statement, [course_name], (error, result) => {
+    response.send(utils.createResponse(error, result));
+  });
+});
+
+// SHOW ALL COURSES
+router.get("/show-courses", authorizeRole(["admin"]), (request, response) => {
+  const statement = `SELECT course_id, course_name FROM ${COURSE_TABLE}`;
+  console.log("statement", statement);
+
+  db.execute(statement, (error, results) => {
+    if (error) {
+      const errorMessage = "Failed to fetch courses";
+      response.send(utils.createErrorResponse(errorMessage));
+      return;
+    }
+
+    if (results.length === 0) {
+      const errorMessage = "No courses found";
+      response.send(utils.createErrorResponse(errorMessage));
+      return;
+    }
+    console.log("admin res", results);
+
+    response.send(utils.createSuccessResponse(results));
+  });
+});
+
+// ADDING SUBJECT TO A COURSE
+router.post("/add-subject", authorizeRole(["admin"]), (request, response) => {
+  const { subject_name, course_name } = request.body;
+
+  // Query to find the course_id based on course_name
+  const findCourseStatement = `SELECT course_id FROM ${COURSE_TABLE} WHERE course_name = ?`;
+
+  db.execute(findCourseStatement, [course_name], (error, courseResults) => {
+    if (error) {
+      console.error("Error finding course:", error);
+      response.status(500).send(utils.createErrorResponse(error.message));
+      return;
+    }
+
+    if (courseResults.length === 0) {
+      // If course not found, send an appropriate response
+      response.status(404).send(utils.createErrorResponse("Course not found"));
+      return;
+    }
+
+    const course_id = courseResults[0].course_id;
+
+    // Query to insert the subject with the retrieved course_id
+    const insertStatement = `INSERT INTO ${SUBJECT_TABLE} 
+        (subject_name, course_id)
+        VALUES  (?, ?)`;
+
+    db.execute(insertStatement, [subject_name, course_id], (error, result) => {
+      if (error) {
+        console.error("Error adding subject:", error);
+        response.status(500).send(utils.createErrorResponse(error.message));
+      } else {
+        response.send(
+          utils.createSuccessResponse("Subject added successfully")
+        );
+      }
+    });
+  });
+});
+
+// SHOW SUBJECTS OF A COURSE
+router.get(
+  "/show-subjects/:course_name",
+  authorizeRole(["admin"]),
+  (request, response) => {
+    const course_name = request.params.course_name;
+
+    // Query to find the course_id based on course_name
+    const findCourseStatement = `SELECT course_id FROM ${COURSE_TABLE} WHERE course_name = ?`;
+
+    db.execute(findCourseStatement, [course_name], (error, courseResults) => {
+      if (error) {
+        console.error("Error finding course:", error);
+        response.status(500).send(utils.createErrorResponse(error.message));
+        return;
+      }
+
+      if (courseResults.length === 0) {
+        // If course not found, send an appropriate response
+        response
+          .status(404)
+          .send(utils.createErrorResponse("Course not found"));
+        return;
+      }
+
+      const course_id = courseResults[0].course_id;
+
+      // Query to fetch subjects based on the retrieved course_id
+      const statement = `SELECT subject_id, subject_name FROM ${SUBJECT_TABLE} WHERE course_id = ?`;
+
+      db.execute(statement, [course_id], (error, subjectResults) => {
+        if (error) {
+          console.error("Error fetching subjects:", error);
+          response.status(500).send(utils.createErrorResponse(error.message));
+        } else {
+          response.send(utils.createSuccessResponse(subjectResults));
+        }
+      });
+    });
+  }
+);
+
+// Add Group
+router.post(
+  "/add-group",
+  authorizeRole(["admin"]),
+  async (request, response) => {
+    const { course_name, group_name } = request.body;
+
+    // Find course_id corresponding to the given course_name
+    const findCourseIdStatement = `SELECT course_id FROM ${COURSE_TABLE} WHERE course_name = ?`;
+    db.execute(findCourseIdStatement, [course_name], async (error, results) => {
+      if (error) {
+        response.send(utils.createErrorResponse(error));
+        return;
+      }
+
+      if (results.length === 0) {
+        response.send(utils.createErrorResponse("Course not found"));
+        return;
+      }
+
+      const course_id = results[0].course_id;
+
+      // Insert the group into the group_table
+      const insertGroupStatement = `INSERT INTO ${GROUP_TABLE} (course_id, group_name) VALUES (?, ?)`;
+      db.execute(
+        insertGroupStatement,
+        [course_id, group_name],
+        (error, result) => {
+          if (error) {
+            response.send(utils.createErrorResponse(error));
+          } else {
+            response.send(
+              utils.createSuccessResponse("Group added successfully!")
+            );
+          }
+        }
+      );
+    });
+  }
+);
+
+// SHOW GROUPS
+router.get("/show-groups", authorizeRole(["admin"]), (request, response) => {
+  const { course_name } = request.query;
+
+  let query;
+  let params;
+
+  if (course_name) {
+    query = `
+      SELECT ${COURSE_TABLE}.course_name, ${GROUP_TABLE}.group_name
+      FROM ${COURSE_TABLE} 
+      JOIN ${GROUP_TABLE}  
+      ON ${COURSE_TABLE}.course_id = ${GROUP_TABLE}.course_id
+      WHERE ${COURSE_TABLE}.course_name = ?;
+    `;
+    params = [course_name];
+  } else {
+    query = `
+      SELECT ${COURSE_TABLE}.course_name, ${GROUP_TABLE}.group_name
+      FROM ${COURSE_TABLE} 
+      JOIN ${GROUP_TABLE}  
+      ON ${COURSE_TABLE}.course_id = ${GROUP_TABLE}.course_id;
+    `;
+    params = [];
+  }
+
+  db.execute(query, params, (error, results) => {
+    if (error) {
+      response.send(utils.createErrorResponse(error));
+    } else {
+      response.send(utils.createSuccessResponse(results));
+    }
+  });
+});
+
+
+//! STUDENT RELATED APIs
+// SHOW ALL STUDENTS (WHICH ARE NOT PRESENT IN ANY COURSE AND ANY GROUP)
+router.get(
+  "/show-all-students",
+  authorizeRole(["admin"]),
+  (request, response) => {
+    const statement = `
+  SELECT student_id, roll_number, student_name, email 
+  FROM ${STUDENT_TABLE} 
+  WHERE course_id IS NULL AND group_id IS NULL
+`;
+
+    db.execute(statement, (error, result) => {
+      if (error) {
+        response.status(500).send(utils.createErrorResponse(error.message));
+      } else {
+        response.send(utils.createSuccessResponse(result));
+      }
+    });
+  }
+);
+
+// ADD STUDENT TO A COURSE
+router.post(
+  "/add-student-to-course",
+  authorizeRole(["admin"]),
+  (request, response) => {
+    const { email, course_name } = request.body;
+    console.log(request.body);
+
+    // Check if the course exists
+    const courseQuery = `SELECT course_id FROM ${COURSE_TABLE} WHERE course_name = ?`;
+    db.execute(courseQuery, [course_name], (courseError, courseResults) => {
+      if (courseError) {
+        response
+          .status(500)
+          .send(utils.createErrorResponse(courseError.message));
+        return;
+      }
+
+      if (courseResults.length === 0) {
+        response
+          .status(404)
+          .send(utils.createErrorResponse("Course not found"));
+        return;
+      }
+
+      const course_id = courseResults[0].course_id;
+
+      // Check if the student exists
+      const studentQuery = `SELECT student_id 
+        FROM ${STUDENT_TABLE} 
+        WHERE email = ?`;
+
+      db.execute(studentQuery, [email], (studentError, studentResults) => {
+        if (studentError) {
+          response
+            .status(500)
+            .send(utils.createErrorResponse(studentError.message));
+          return;
+        }
+
+        if (studentResults.length === 0) {
+          response
+            .status(404)
+            .send(utils.createErrorResponse("Student not found"));
+          return;
+        }
+
+        const student_id = studentResults[0].student_id;
+
+        // Add student to the course
+        const addStudentToCourseQuery = `UPDATE ${STUDENT_TABLE} 
+          SET course_id = ? WHERE email = ?`;
+
+        db.execute(
+          addStudentToCourseQuery,
+          [course_id, email],
+          (addError, addResult) => {
+            if (addError) {
+              response
+                .status(500)
+                .send(utils.createErrorResponse(addError.message));
+              return;
+            }
+
+            response.send(
+              utils.createSuccessResponse(
+                "Student added to course successfully"
+              )
+            );
+          }
+        );
+      });
+    });
+  }
+);
+
+// SHOW STUDENTS FROM A COURSE
+router.get(
+  "/students-with-course",
+  authorizeRole(["admin"]),
+  (request, response) => {
+    const { course_name } = request.query;
+    console.log(course_name);
+    console.log(request.query);
+
+    // Find course_id for the given course_name
+    const courseQuery = `SELECT course_id FROM ${COURSE_TABLE} WHERE course_name = ?`;
+    db.execute(courseQuery, [course_name], (courseError, courseResults) => {
+      if (courseError) {
+        response.status(500).json(utils.createErrorResponse(courseError));
+        return;
+      }
+
+      if (courseResults.length === 0) {
+        response
+          .status(404)
+          .json(utils.createErrorResponse("Course not found"));
+        return;
+      }
+
+      const course_id = courseResults[0].course_id;
+
+      // Fetch students belonging to the given course
+      const query = `
+          SELECT s.student_id, s.roll_number, s.student_name, s.email, c.course_name
+          FROM ${STUDENT_TABLE} s
+          INNER JOIN ${COURSE_TABLE} c ON s.course_id = c.course_id
+          WHERE c.course_id = ?;
+      `;
+      db.execute(query, [course_id], (error, results) => {
+        if (error) {
+          response.status(500).json(utils.createErrorResponse(error));
+        } else {
+          response.json(utils.createSuccessResponse(results));
+        }
+      });
+    });
+  }
+);
+
   module.exports = router;

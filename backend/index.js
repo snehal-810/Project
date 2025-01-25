@@ -75,12 +75,12 @@ app.use((request, response, next) => {
 // add Routes
 const staffRoutes = require("./routes/staff");
 // const coordinatorRoutes = require("./routes/coordinator");
-// const studentRoutes = require("./routes/student");
+const studentRoutes = require("./routes/student");
 const adminRoutes = require("./routes/admin");
 
 app.use("/staff", staffRoutes);
 // app.use("/coordinator", coordinatorRoutes);
-// app.use("/student", studentRoutes);
+app.use("/student", studentRoutes);
 app.use("/admin", adminRoutes);
 
 app.listen(port, () => console.log(`App listening on port ${port}!`));
