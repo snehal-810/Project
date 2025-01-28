@@ -74,12 +74,12 @@ app.use((request, response, next) => {
 
 // add Routes
 const staffRoutes = require("./routes/staff");
-// const coordinatorRoutes = require("./routes/coordinator");
+const coordinatorRoutes = require("./routes/coordinator");
 const studentRoutes = require("./routes/student");
 const adminRoutes = require("./routes/admin");
 
 app.use("/staff", staffRoutes);
-// app.use("/coordinator", coordinatorRoutes);
+app.use("/coordinator", coordinatorRoutes);
 app.use("/student", studentRoutes);
 app.use("/admin", adminRoutes);
 
